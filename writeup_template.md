@@ -1,57 +1,88 @@
-## Writeup Template
-
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
-
----
-
-**Advanced Lane Finding Project**
+# **Advanced Lane Finding using OPENCV**
 
 The goals / steps of this project are the following:
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+1. [x] Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
+2. [x] Apply a distortion correction to raw images.
+3. [x] Use color transforms, gradients, etc., to create a thresholded binary image.
+4. [ ] Apply a perspective transform to rectify binary image ("birds-eye view").
+5. [ ] Detect lane pixels and fit to find the lane boundary.
+6. [ ] Determine the curvature of the lane and vehicle position with respect to center.
+7. [ ] Warp the detected lane boundaries back onto the original image.
+8. [ ] Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 [//]: # (Image References)
 
-[image1]: ./examples/undistort_output.png "Undistorted"
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
+[image1]: ./output_images/undistort_output.png "Undistorted"
+[image2]: ./output_images/binary_combined_thresholds.png "Binary image combined thresholds"
+[image3]: ./output_images/perspective_transform.png "Perspective transform in straight lanes road"
 [image4]: ./examples/warped_straight_lines.jpg "Warp Example"
 [image5]: ./examples/color_fit_lines.jpg "Fit Visual"
 [image6]: ./examples/example_output.jpg "Output"
 [video1]: ./project_video.mp4 "Video"
 
-## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
+## Steps description
 
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+### Here I will consider the steps individually and describe how I addressed each step in my implementation.  
 
 ---
+### 1. Camera Calibration
 
-### Writeup / README
+The implementation of the camera calibration is shown in the second block of code of the jupyter notebook 'Advanced Lane Finding.ipynb'. 
 
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
+I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection after using `cv2.findChessboardCorners()`. 
 
-You're reading it!
+The lists of points `objpoints` and `imgpoints`  are used to compute the camera calibration matrix and distortion coefficients, which are the outputs of the `cv2.calibrateCamera()` function.  
 
-### Camera Calibration
-
-#### 1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
-
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
-
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
-
-I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
+### 2. Distortion correction of raw images
+As an example of the camera calibration step (see the respective section in the jupyter notebook), I applied this distortion correction to the `calibration5.jpg` image in the folder `camera_cal`. After applying the function `cv2.undistort()` I obtained the following result: 
 
 ![alt text][image1]
 
-### Pipeline (single images)
+
+### 3. Color and gradient thresholds
+
+This step is implemented in the jupyter notebook. The method considers thresholds over the gradient in the x direction of the lightness channel, which are specially useful to identify vertical or near vertical transitions in color a color channel (in this case the L channel of the HLS -hue, lightness, saturation- color space) and thresholds over the saturation channel of the HLS color space. The gradients in the x direction are achieved using `cv2.Sobel()` function over the (1,0) axis, which is the x axis in this case. After conditioning the values (taking the absolute value and scaling) a binary result is defined for those values that are within the specified gradient thresholds. A similar approach is carried out with the saturation channel, where the colors thresholds are used to define a binary image with values inside the minimum and maximum threshold values. Finally, both binary outputs are combined. Here is the results after applying and combining the color and thresholds the image `test5.jpg` from the folder `test_images`:
+
+![alt text][image2]
+
+### 4. Perspective transform
+
+The perspective transform step (implemented in the jupyter notebook) uses the function `cv2.getPerspectiveTransform()` to obtain a transform matrix (M) to map source points to destination points. We can also obtain an inverse transform matrix (Minv) to map destination points to source points changing the source to destination and destination to source in the perspective transform function. The election of source and destination points are key in this step. The defined values are the following:
+
+```python
+    offset_left = 245 # offset in x direction at the left side of the warped image
+    offset_right = 285 # offset in the x directions at the right side of the warped image
+
+    #b. Define four source points src=np.float32([[,],[,],[,],[,]])
+    src = np.float32([[232,img_size[1]-20], 
+                     [582,460], 
+                     [701,460], 
+                     [1080,img_size[1]-20]])
+
+    #c. Define four destination points dst=np.float32([[,],[,],[,],[,]])
+    dst = np.float32([[offset_left,img_size[1]],
+                     [offset_left,0],
+                     [img_size[0]-offset_right,0],
+                     [img_size[0]-offset_right,img_size[1]]])
+```
+
+This resulted in the following source and destination points:
+
+| Source        | Destination   | 
+|:-------------:|:-------------:| 
+| 232, 700      | 245, 720        | 
+| 582, 460      | 245, 0      |
+| 701, 460      | 995, 0      |
+| 1080, 700     | 995, 720        |
+
+Once a correct perspective transform matrix is obtained, we expect an image transformation where the lane lines appear parallel and well defined. The following image shows the perspective transform working as expected:
+
+![alt text][image3]
+
+
+
+## **Pipeline (single images)**
 
 #### 1. Provide an example of a distortion-corrected image.
 
