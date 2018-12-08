@@ -5,7 +5,7 @@ The goals / steps of this project are the following:
 1. [x] Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
 2. [x] Apply a distortion correction to raw images.
 3. [x] Use color transforms, gradients, etc., to create a thresholded binary image.
-4. [ ] Apply a perspective transform to rectify binary image ("birds-eye view").
+4. [x] Apply a perspective transform to rectify binary image ("birds-eye view").
 5. [ ] Detect lane pixels and fit to find the lane boundary.
 6. [ ] Determine the curvature of the lane and vehicle position with respect to center.
 7. [ ] Warp the detected lane boundaries back onto the original image.
@@ -74,12 +74,13 @@ This resulted in the following source and destination points:
 | 232, 700      | 245, 720        | 
 | 582, 460      | 245, 0      |
 | 701, 460      | 995, 0      |
-| 1080, 700     | 995, 720        |
+| 1075, 700     | 995, 720        |
 
 Once a correct perspective transform matrix is obtained, we expect an image transformation where the lane lines appear parallel and well defined. The following image shows the perspective transform working as expected:
 
 ![alt text][image3]
 
+### 5. Detect lane pixels and find the lane lines
 
 
 ## **Pipeline (single images)**
