@@ -6,20 +6,21 @@ The goals / steps of this project are the following:
 2. [x] Apply a distortion correction to raw images.
 3. [x] Use color transforms, gradients, etc., to create a thresholded binary image.
 4. [x] Apply a perspective transform to rectify binary image ("birds-eye view").
-5. [ ] Detect lane pixels and fit to find the lane boundary.
-6. [ ] Determine the curvature of the lane and vehicle position with respect to center.
-7. [ ] Warp the detected lane boundaries back onto the original image.
-8. [ ] Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+5. [x] Detect lane pixels and fit to find the lane boundary.
+6. [x] Determine the curvature of the lane and vehicle position with respect to center.
+7. [x] Warp the detected lane boundaries back onto the original image.
+8. [x] Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 [//]: # (Image References)
 
-[image1]: ./output_images/undistort_output.png "Undistorted"
-[image2]: ./output_images/binary_combined_thresholds.png "Binary image combined thresholds"
-[image3]: ./output_images/perspective_transform.png "Perspective transform in straight lanes road"
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
+[image1]: ./output_images/undistort_output.png "Image 1. Undistorted"
+[image2]: ./output_images/binary_combined_thresholds.png "Image 2. Binary image combined thresholds"
+[image3]: ./output_images/perspective_transform.png "Image 3. Perspective transform in straight lanes road"
+[image4]: ./output_images/lane_line_detection.png "Image 4. Left and right lane line detection"
+[image5]: ./output_images/curvature_position.png "Image 5. Curvature and vehicle position respect to the middle of the lane"
+[image6]: ./output_images/estimations_warped.png "Image 6. Warped back lane region in the undistorted image in addition to numerical estimations"
+[video1]: ./estimation_output_project_video.mp4 "Output Video: simple pipeline version"
+[video2]: ./improved_estimation_output_project_video.mp4 "Output Video: improved pipeline version"
 
 ## Steps description
 
@@ -34,6 +35,10 @@ I start by preparing "object points", which will be the (x, y, z) coordinates of
 
 The lists of points `objpoints` and `imgpoints`  are used to compute the camera calibration matrix and distortion coefficients, which are the outputs of the `cv2.calibrateCamera()` function.  
 
+## **Pipeline (single images)**
+
+Steps 2 through 8 are the main ones used in the pipeline function. 
+
 ### 2. Distortion correction of raw images
 As an example of the camera calibration step (see the respective section in the jupyter notebook), I applied this distortion correction to the `calibration5.jpg` image in the folder `camera_cal`. After applying the function `cv2.undistort()` I obtained the following result: 
 
@@ -42,7 +47,7 @@ As an example of the camera calibration step (see the respective section in the 
 
 ### 3. Color and gradient thresholds
 
-This step is implemented in the jupyter notebook. The method considers thresholds over the gradient in the x direction of the lightness channel, which are specially useful to identify vertical or near vertical transitions in color a color channel (in this case the L channel of the HLS -hue, lightness, saturation- color space) and thresholds over the saturation channel of the HLS color space. The gradients in the x direction are achieved using `cv2.Sobel()` function over the (1,0) axis, which is the x axis in this case. After conditioning the values (taking the absolute value and scaling) a binary result is defined for those values that are within the specified gradient thresholds. A similar approach is carried out with the saturation channel, where the colors thresholds are used to define a binary image with values inside the minimum and maximum threshold values. Finally, both binary outputs are combined. Here is the results after applying and combining the color and thresholds the image `test5.jpg` from the folder `test_images`:
+This step is implemented in the jupyter notebook. The method considers thresholds over the gradient in the x direction of the lightness channel, which are specially useful to identify vertical or near vertical transitions in color a color channel (in this case the L channel of the HLS -hue, lightness, saturation- color space) and thresholds over the HSL color space to filter white and yellow lane lines from the image (Initially tried just with the saturation channel from the HSL color space but didn't get the best results). The gradients in the x direction are achieved using `cv2.Sobel()` function over the (1,0) axis, which is the x axis in this case. After conditioning the values (taking the absolute value and scaling) a binary result is defined for those values that are within the specified gradient thresholds. A similar approach is carried out over the white and yellow regions in HSL color space image, where the thresholds are used to define a binary image (using two filter, one for white and another for yellow) with values inside the minimum and maximum threshold values for each channel of the HSL color space. Finally, both binary outputs are combined. Here is the results after applying and combining the color and thresholds the image `test5.jpg` from the folder `test_images`:
 
 ![alt text][image2]
 
@@ -55,10 +60,10 @@ The perspective transform step (implemented in the jupyter notebook) uses the fu
     offset_right = 285 # offset in the x directions at the right side of the warped image
 
     #b. Define four source points src=np.float32([[,],[,],[,],[,]])
-    src = np.float32([[232,img_size[1]-20], 
+    src = np.float32([[206,img_size[1]], 
                      [582,460], 
                      [701,460], 
-                     [1080,img_size[1]-20]])
+                     [1100,img_size[1]]])
 
     #c. Define four destination points dst=np.float32([[,],[,],[,],[,]])
     dst = np.float32([[offset_left,img_size[1]],
@@ -71,10 +76,10 @@ This resulted in the following source and destination points:
 
 | Source        | Destination   | 
 |:-------------:|:-------------:| 
-| 232, 700      | 245, 720        | 
+| 206, 720      | 245, 720        | 
 | 582, 460      | 245, 0      |
 | 701, 460      | 995, 0      |
-| 1075, 700     | 995, 720        |
+| 1100, 720     | 995, 720        |
 
 Once a correct perspective transform matrix is obtained, we expect an image transformation where the lane lines appear parallel and well defined. The following image shows the perspective transform working as expected:
 
@@ -82,78 +87,59 @@ Once a correct perspective transform matrix is obtained, we expect an image tran
 
 ### 5. Detect lane pixels and find the lane lines
 
-
-## **Pipeline (single images)**
-
-#### 1. Provide an example of a distortion-corrected image.
-
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
-
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
-
-![alt text][image3]
-
-#### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
-
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
-
-```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-```
-
-This resulted in the following source and destination points:
-
-| Source        | Destination   | 
-|:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
-
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+In this step we use histograms and windows to identify the lane lines. Histograms are useful to detect the initial position of the most active pixels in the lower half of the image.
+Since the image has been warped (for parallel lines to appear parallel in the warped space), we can expect vertical regions where the lane is present to present the biggest group of
+active pixels. Once we hace detected this initial position, we can iterate with windows in the direction bottom-up with the goal of detecting each lane line inside the window boundaries. A set of hyperparameters can be defined to tune the search, such as the number of windows in the y direction and the amount of active pixels required to recenter a windows for a next iteration. The following image shows the result of this process:
 
 ![alt text][image4]
 
-#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+### 6. Determine the lane curvature and vehicle position respect to the center of the lane
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+This section implements the curvature radius formula using a transformation of length values
+from the pixel space to the real world space. In reality there are two different pixel worlds to consider and we need to map them to the real world. The first one is the one mapped by the camera which is the one reflected in the undistorted images as shown in the left side of image 3. The second one is the pixel world from the warped space, here lengths in the x and y directions have a different mapping to real world values. An image in this pixel world is present in the right side of image 3. 
+
+After fitting the pixel values detected in each line to a second order polynomial, we use its coefficientes to obtain the curvature radius. Given that in general the left and right line lanes are parallel in the real world, we can expect that they will appear parallel and with a similar curvature radius in the warped space. The vehicle position respect to the center of the lane is calculated defining the center of the image as the center of the vehicle and the center of the lane as the reference point. Thus, we need to obtain the x coordinate of the right and left line lanes, then calculate the middlepoint. 
+
+All this ideas are presented in detail in the jupyter notebook in the respective section. The following image is the result of this process. LCR stands for 'Left lane Curvature Radius', RCR for 'Right lane Curvature Radius' and Position, to the vehicle position respect to the middle of the lane. Given that the middle of the lane is the reference point, when the vehicle is right to the middle point we will get positive values. When the vehicle is positioned to the left of the middle point of the lane we get negative values. 
 
 ![alt text][image5]
 
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+### 7. Warp the detected lane lines back onto the original image
 
-I did this in lines # through # in my code in `my_other_file.py`
+This part of the pipeline process defines a region contained within the left and right lanes and warps it back onto the undistorted image using the inverse matrix obtained after applying the perspective transform from the destination to the source (from warped space -top view- to the undistorted image space -camera view-).
 
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+### 8. Output numerical estimation of curvature and vehicle position
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+In this step we attach the text with the numerical estimations from step 7 at the top of the image. For the curvature radius we take the average value between the left lane line and right lane line curvature radius. The next image shows the result of both steps. Notice the green region warped back onto the undistorted image and the numerical estimations at the top.
 
 ![alt text][image6]
 
 ---
 
-### Pipeline (video)
+## **Pipeline (video)**
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+### Sanity check, histogram and window lane line tracking only
 
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](https://youtu.be/kMyI6nWGlGE)
 
 ---
 
-### Discussion
+## **Pipeline (video) improved version with Line class**
+
+### Line tracking, sanity check, look-ahead filter,reset and smoothing  (single images)
+
+Here is a [link to my video result](https://youtu.be/2brrPO21Nqo)
+
+---
+
+## **Discussion**
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+One of the main challenges of the project is to apply a filter able to separate shadows and dark areas of the road over light material from the lane lines. The defined thresholds for the gradient in the x direction (using ``cv2.Sobel` over x) and color filtering have a huge impact in the performance of the lane finding pipeline and will not work in all scenarios, as was shown in the challenge videos, where constant irregularities in the lane asfalt , shadows and strong curves will make the pipeline fail. The color filtering was fine tuned to detect yellow and white lines, if relevant features of lane lines are present in a differnt color channel/space invisible to this implementation we will have to redefine it. 
+
+Another challenge in the project was the time it takes for the pipeline to complete one pass. If we use histogram and window interations only, it takes about 1 second to complete one frame. I implemented the tip that recommends to keep track of the lanes and identify subsequent lanes not based in histograms and windows iterations (which is computationally expensive) but using the previosly detected lane as the reference to define a margin inside which we should find the next lane line. This operation take around 0.1 seconds, a huge improvement from the 1 second that takes the initial implementation. This approach however is only useful once a lane line has been identified. 
+
+For live lane line tracking, the results in this project are not enough. At the minimum, the time that takes to process one frame is about 0.1 seconds. In real life scenarios this time can be more that enough for accidents to ocurr and depending on the context they could be life threatening. Speed of convertion is therefore a relevant requirement in certain application and we can improve with more computational power and more time/space efficient convertion algorithms.
+
+
